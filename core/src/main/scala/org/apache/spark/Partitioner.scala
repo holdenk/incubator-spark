@@ -119,11 +119,35 @@ class RangePartitioner[K <% Ordered[K]: ClassTag, V](
   def numPartitions = partitions
 
   def getPartition(key: Any): Int = {
-    // TODO: Use a binary search here if number of partitions is large
     val k = key.asInstanceOf[K]
-    var partition = 0
-    while (partition < rangeBounds.length && k > rangeBounds(partition)) {
-      partition += 1
+    var partition : Int = 0
+    if (rangeBounds.length < 1000) {
+      // If we have less than 100 partitions naive search
+      while (partition < rangeBounds.length && k > rangeBounds(partition)) {
+	partition += 1
+      }
+    } else {
+      // Java's binary search is special cased for Float,Double,Byte,Char,Short,Int,Long otherwise
+      // we can just use AnyRef :)
+      partition = k match {
+        case k: Float => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Float]], k)
+        case k: Double => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Double]], k)
+        case k: Byte => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Byte]], k)
+        case k: Char => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Char]], k)
+        case k: Short => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Short]], k)
+        case k: Int => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Int]], k)
+        case k: Long => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Long]], k)
+        case _ => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[AnyRef]], k)
+      }
+      // binarySearch either returns the match location or -[insertion point]-1
+      if (partition >= 0) {
+	partition = partition
+      } else {
+	partition = -partition-1
+      }
+      if (partition > rangeBounds.length) {
+	partition = rangeBounds.length
+      }
     }
     if (ascending) {
       partition
