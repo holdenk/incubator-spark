@@ -119,11 +119,24 @@ class RangePartitioner[K <% Ordered[K]: ClassTag, V](
   def numPartitions = partitions
 
   def getPartition(key: Any): Int = {
-    // TODO: Use a binary search here if number of partitions is large
     val k = key.asInstanceOf[K]
-    var partition = 0
-    while (partition < rangeBounds.length && k > rangeBounds(partition)) {
-      partition += 1
+    var partition : Int = 0
+    if (rangeBounds.length < 100) {
+      // If we have less than 100 partitions naive search
+      while (partition < rangeBounds.length && k > rangeBounds(partition)) {
+	partition += 1
+      }
+    } else {
+      // binarySearch either returns the match location or -[insertion point]-1 and we want 
+      partition = rangeBounds.binarySearch(k)
+      if (partition > 0) {
+	partition = partition+1
+      } else {
+	partition = -partition-1
+      }
+      if (partition > rangeBounds.length) {
+	partition = rangeBounds.length
+      }
     }
     if (ascending) {
       partition
