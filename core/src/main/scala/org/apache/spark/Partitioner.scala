@@ -128,8 +128,10 @@ class RangePartitioner[K <% Ordered[K]: ClassTag, V](
       }
     } else {
       // binarySearch either returns the match location or -[insertion point]-1 and we want 
-      partition = rangeBounds.binarySearch(k)
-      if (partition > 0) {
+      partition = java.util.Arrays.binarySearch(
+        rangeBounds.asInstanceOf[Array[AnyRef]], k)
+//      partition = -1
+       if (partition > 0) {
 	partition = partition+1
       } else {
 	partition = -partition-1
