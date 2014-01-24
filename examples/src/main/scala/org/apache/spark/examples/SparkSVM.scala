@@ -32,16 +32,15 @@ object SparkSVM {
     }
     val sc = new SparkContext(args(0), "SparkSVM",
       System.getenv("SPARK_HOME"), SparkContext.jarOfClass(this.getClass))
-    val data = sc.textFile("./a")
+    val data = sc.textFile("/home/holden/a")
 
-    val parsedData = data.map { line =>
+    val trainingData = data.map { line =>
       val parts = line.split(' ')
       LabeledPoint(parts(0).toDouble, parts.tail.map(x => x.toDouble).toArray)
     }
 
     // Run training algorithm
     val numIterations = 20
-    val trainingData = parsedData.sample(false, 9/10, scala.util.Random.nextInt)
     val model = SVMWithSGD.train(trainingData, numIterations)
 
     
@@ -50,7 +49,7 @@ object SparkSVM {
       val prediction = model.predict(point.features)
       (point.label, prediction)
     }
-    val trainErr = labelAndPreds.filter(r => r._1 != r._2).count.toDouble / parsedData.count
+    val trainErr = labelAndPreds.filter(r => r._1 != r._2).count.toDouble / trainingData.count
     println("trainError = " + trainErr)
   }
 }
