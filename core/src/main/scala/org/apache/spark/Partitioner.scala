@@ -20,6 +20,7 @@ package org.apache.spark
 import scala.reflect.ClassTag
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.CollectionsUtils
 import org.apache.spark.util.Utils
 
 /**
@@ -118,7 +119,7 @@ class RangePartitioner[K <% Ordered[K]: ClassTag, V](
 
   def numPartitions = partitions
 
-  private var binarySearch: Option[(K => Int)] = None
+  private val binarySearch: ((Array[K], K) => Int) = CollectionsUtils.makeBinarySearch[K]
 
   def getPartition(key: Any): Int = {
     val k = key.asInstanceOf[K]
@@ -130,33 +131,7 @@ class RangePartitioner[K <% Ordered[K]: ClassTag, V](
       }
     } else {
       // Determine which binary search method to use only once.
-      if (binarySearch == None) {
-        binarySearch = Some(k match {
-          case e: Float => ((x: K) =>
-            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Float]],
-              x.asInstanceOf[Float]))
-          case e: Double =>
-            ((x: K) => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Double]],
-              x.asInstanceOf[Double]))
-          case e: Byte => ((x: K) =>
-            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Byte]],
-              x.asInstanceOf[Byte]))
-          case e: Char => ((x: K) => 
-            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Char]],
-              x.asInstanceOf[Char]))
-          case e: Short => ((x: K) =>
-            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Short]],
-              x.asInstanceOf[Short]))
-          case e: Int => ((x: K) => 
-            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Int]],
-              x.asInstanceOf[Int]))
-          case e: Long => ((x: K) => 
-            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Long]],
-              x.asInstanceOf[Long]))
-          case _ => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[AnyRef]], _)
-        })
-      }
-      partition = binarySearch.get.apply(k)
+      partition = binarySearch(rangeBounds, k)
       // binarySearch either returns the match location or -[insertion point]-1
       if (partition < 0) {
         partition = -partition-1
