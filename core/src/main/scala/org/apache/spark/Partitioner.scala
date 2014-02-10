@@ -118,6 +118,8 @@ class RangePartitioner[K <% Ordered[K]: ClassTag, V](
 
   def numPartitions = partitions
 
+  private var binarySearch: Option[(K => Int)] = None
+
   def getPartition(key: Any): Int = {
     val k = key.asInstanceOf[K]
     var partition = 0
@@ -127,18 +129,34 @@ class RangePartitioner[K <% Ordered[K]: ClassTag, V](
         partition += 1
       }
     } else {
-      // Java's binary search is special cased for Float,Double,Byte,Char,Short,Int,Long otherwise
-      // we can just use AnyRef :)
-      partition = k match {
-        case k: Float => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Float]], k)
-        case k: Double => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Double]], k)
-        case k: Byte => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Byte]], k)
-        case k: Char => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Char]], k)
-        case k: Short => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Short]], k)
-        case k: Int => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Int]], k)
-        case k: Long => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Long]], k)
-        case _ => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[AnyRef]], k)
+      // Determine which binary search method to use only once.
+      if (binarySearch == None) {
+        binarySearch = Some(k match {
+          case e: Float => ((x: K) =>
+            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Float]],
+              x.asInstanceOf[Float]))
+          case e: Double =>
+            ((x: K) => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Double]],
+              x.asInstanceOf[Double]))
+          case e: Byte => ((x: K) =>
+            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Byte]],
+              x.asInstanceOf[Byte]))
+          case e: Char => ((x: K) => 
+            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Char]],
+              x.asInstanceOf[Char]))
+          case e: Short => ((x: K) =>
+            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Short]],
+              x.asInstanceOf[Short]))
+          case e: Int => ((x: K) => 
+            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Int]],
+              x.asInstanceOf[Int]))
+          case e: Long => ((x: K) => 
+            java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[Long]],
+              x.asInstanceOf[Long]))
+          case _ => java.util.Arrays.binarySearch(rangeBounds.asInstanceOf[Array[AnyRef]], _)
+        })
       }
+      partition = binarySearch.get.apply(k)
       // binarySearch either returns the match location or -[insertion point]-1
       if (partition < 0) {
         partition = -partition-1
