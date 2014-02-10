@@ -71,24 +71,24 @@ class PartitioningSuite extends FunSuite with SharedSparkContext with PrivateMet
     val rdd = sc.parallelize(1.to(2000)).map(x => (x, x))
     // We have different behaviour of getPartition for partitions with less than 1000 and more than
     // 1000 partitions.
-    val partitionSizes = List(1,2,10,100,500,1000,1500)
+    val partitionSizes = List(1, 2, 10, 100, 500, 1000, 1500)
     val partitioners = partitionSizes.map(p => (p, new RangePartitioner(p, rdd)))
     val decoratedRangeBounds = PrivateMethod[Array[Int]]('rangeBounds)
-    partitioners.map{case (size, partitioner) =>
+    partitioners.map { case (numPartitions, partitioner) =>
       val rangeBounds = partitioner.invokePrivate(decoratedRangeBounds())
-      1.to(1000).map(element => {
+      1.to(1000).map { element => {
         val partition = partitioner.getPartition(element)
-        if (size > 1) {
+        if (numPartitions > 1) {
           if (partition < rangeBounds.size) {
             assert(element <= rangeBounds(partition))
           }
           if (partition > 0) {
-            assert(element > rangeBounds(partition-1))
+            assert(element > rangeBounds(partition - 1))
           }
         } else {
           assert(partition === 0)
         }
-      })
+      }}
     }
   }
 
